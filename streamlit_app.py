@@ -1,68 +1,80 @@
 import streamlit as st
+from datetime import datetime
+import pytz
 
-# 設定網頁標題與圖標
-st.set_page_config(page_title="Annex Garage Trading Monitor", page_icon="📈")
+# 設定網頁標題
+st.set_page_config(page_title="Annex Garage 交易系統 V2", page_icon="📈")
+st.title("🏹 精準當沖進場檢核 (V2)")
+st.caption("實驗目標：每日一單，嚴格遵守 9:10 後進場紀律")
 
-st.title("📊 當沖進場條件檢核器")
-st.caption("專為 150-399 TWD 高周轉標的設計")
+# --- 1. 時間檢查 (自動判斷是否超過 9:10) ---
+# 設定台灣時區
+tw_tz = pytz.timezone('Asia/Taipei')
+now_tw = datetime.now(tw_tz)
+current_time_str = now_tw.strftime("%H:%M")
+# 判斷是否已經 9:10 之後 (且在收盤前)
+can_trade_time = now_tw.hour > 9 or (now_tw.hour == 9 and now_tw.minute >= 10)
+market_closed = now_tw.hour >= 14 # 簡單判斷台股收盤
 
-# --- 左側輸入區 ---
-st.sidebar.header("🎯 盤中即時數據")
-ticker = st.sidebar.text_input("股票代碼", value="2330")
-price = st.sidebar.number_input("當前股價 (TWD)", min_value=0.0, value=250.0, step=0.5)
-open_p = st.sidebar.number_input("今日開盤價", min_value=0.0, value=245.0)
-ma_p = st.sidebar.number_input("均線價格 (5分K)", min_value=0.0, value=248.0)
-vol_ratio = st.sidebar.slider("預估量比 (昨日=1.0)", 0.0, 5.0, 1.2)
+# --- 2. 左側數據輸入 ---
+st.sidebar.header("📊 盤中實況數據")
+ticker = st.sidebar.text_input("股票代號", value="2330")
+price = st.sidebar.number_input("當前成交價", value=200.0, step=0.5)
+stop_p = st.sidebar.number_input("預計停損價", value=198.0, step=0.5)
+target_p = st.sidebar.number_input("預期獲利點", value=210.0, step=0.5)
 
 st.sidebar.markdown("---")
-st.sidebar.header("🛡️ 風險控管設定")
-stop_p = st.sidebar.number_input("停損撤退價", min_value=0.0, value=244.0)
-target_p = st.sidebar.number_input("預期獲利價", min_value=0.0, value=265.0)
-fomo = st.sidebar.checkbox("我現在心態很急 (FOMO)")
+st.sidebar.header("🌍 市場環境")
+market_state = st.sidebar.radio("大盤/櫃買開盤狀態", ["開高", "開平", "開低"])
+stock_open_pos = st.sidebar.radio("個股開盤位置", ["開高 (跳空)", "開平", "開低"])
+direction = st.sidebar.radio("開盤後出方向", ["往上衝", "往下殺", "橫盤震盪"])
 
-# --- 核心邏輯計算 ---
-max_cap = 300000
+# --- 3. 核心檢查邏輯 ---
+st.subheader("🔍 進場條件驗證")
+
+# A. 時間限制 (自動檢查)
+if can_trade_time:
+    st.success(f"✅ 時間檢核：目前 {current_time_str}，已過 9:10 (符合進場時間)")
+    time_ok = True
+else:
+    st.error(f"❌ 時間檢核：目前 {current_time_str}，未到 9:10 (請耐心等待，禁動手)")
+    time_ok = False
+
+# B. 手動勾選檢查
+st.write("### 關鍵動作確認：")
+key_level = st.checkbox("關鍵價位：是否已【突破】或【跌破】關鍵壓力/支撐？")
+plan_ok = st.checkbox("計畫執行：這筆單符合「大盤方向」與「個股方向」的一致性？")
+
+# C. 損益比計算
 risk = price - stop_p
 reward = target_p - price
 rr_ratio = reward / risk if risk > 0 else 0
-# 計算建議股數 (考慮手續費 0.1425%)
-suggested_shares = int(max_cap // (price * 1.001425))
+rr_ok = rr_ratio >= 2.0
 
-# --- 中間結果顯示 ---
-st.header(f"檢測標的：{ticker}")
-
-# 建立五個檢查燈號
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.metric("建議最大買進", f"{suggested_shares} 股", f"{suggested_shares//1000} 張")
-with col2:
-    st.metric("損益比 (R/R)", f"{rr_ratio:.2f}", delta="及格" if rr_ratio >= 2 else "不及格", delta_color="normal" if rr_ratio >= 2 else "inverse")
-with col3:
-    st.metric("交易額度", "30 萬", "固定上限")
-
+# --- 4. 綜合判斷結果 ---
 st.markdown("---")
 
-# 條件列表
-checks = {
-    "價格區間 (150-399)": 150 <= price <= 399,
-    "趨勢向上 (價 > 開)": price > open_p,
-    "均線支撐 (價 > 均)": price > ma_p,
-    "量能充足 (量比 >= 1)": vol_ratio >= 1.0,
-    "心理防線 (非 FOMO)": not fomo,
-    "損益比 > 2.0": rr_ratio >= 2.0
-}
+# 總結所有條件
+final_check = all([time_ok, key_level, plan_ok, rr_ok])
 
-for label, passed in checks.items():
-    if passed:
-        st.success(f"✅ {label}")
-    else:
-        st.error(f"❌ {label}")
-
-# --- 最終決策 ---
-st.markdown("---")
-if all(checks.values()):
+if final_check:
     st.balloons()
-    st.markdown("## 🟢 準則全數成立：請執行交易！")
-    st.warning(f"提醒：請嚴格執行 {stop_p} 停損，不要攤平。")
+    st.markdown("## 🟢 【准許進場】")
+    st.info(f"大盤{market_state} / 個股{stock_open_pos} / 方向{direction}")
+    st.warning(f"建議：嚴格執行 {stop_p} 停損，不加碼、不攤平。")
 else:
-    st.markdown("## 🔴 條件未齊：保持空手觀望。")
+    st.markdown("## 🔴 【條件未齊 - 觀望】")
+    if not rr_ok:
+        st.write(f"⚠️ 損益比不足：目前僅 {rr_ratio:.2f} (目標需 > 2.0)")
+    if not key_level:
+        st.write("⚠️ 尚未突破或跌破關鍵價位")
+
+# --- 5. 數據小卡 ---
+st.markdown("---")
+c1, c2, c3 = st.columns(3)
+c1.metric("當前損益比", f"{rr_ratio:.2f}")
+c2.metric("最大風控額", "30 萬")
+shares = int(300000 // (price * 1.001425))
+c3.metric("建議股數", f"{shares}")
+
+st.caption(f"數據最後更新時間：{current_time_str}")
