@@ -3,13 +3,14 @@ from datetime import datetime
 import pytz
 import yfinance as yf
 
-st.set_page_config(page_title="Annex Garage 交易系統 V5.3", page_icon="🏎️")
-st.title("🏹 精準當沖進場檢核 (V5.3)")
-st.caption("實驗目標：每日一單 (中文顯示強化版)，嚴格執行 09:10 紀律")
+st.set_page_config(page_title="Annex Garage 交易系統 V5.4", page_icon="🏎️")
+st.title("🏹 精準當沖進場檢核 (V5.4)")
+st.caption("實驗目標：每日一單 (精簡介面版)，嚴格執行 09:10 紀律")
 
 # --- 1. 時間檢查 ---
 tw_tz = pytz.timezone('Asia/Taipei')
 now_tw = datetime.now(tw_tz)
+current_time_str = now_tw.strftime("%H:%M")
 can_trade_time = now_tw.hour > 9 or (now_tw.hour == 9 and now_tw.minute >= 10)
 
 # --- 2. 側邊欄：設定 ---
@@ -24,7 +25,6 @@ if 'auto_data' not in st.session_state:
 
 if st.sidebar.button("🔍 自動抓取今日數據"):
     try:
-        # 嘗試上市與上櫃代號
         stock = yf.Ticker(f"{ticker_input}.TW")
         hist = stock.history(period="2d")
         if hist.empty:
@@ -33,11 +33,9 @@ if st.sidebar.button("🔍 自動抓取今日數據"):
         
         if not hist.empty:
             info = stock.info
-            # 強化中文抓取邏輯：優先找 info 中的中文特徵
-            # 有些台股的中文名稱會藏在 'longName' 或 'shortName'
             raw_name = info.get('longName') or info.get('shortName') or ticker_input
             
-            # 建立常用熱門股手動對照表 (確保你常做的標的一定有中文)
+            # 常用中文對照表
             common_dict = {
                 "Taiwan Semiconductor Manufacturing Company Limited": "台積電",
                 "Hon Hai Precision Industry Co., Ltd.": "鴻海",
@@ -49,9 +47,9 @@ if st.sidebar.button("🔍 自動抓取今日數據"):
             }
             final_name = common_dict.get(raw_name, raw_name)
             
-            # 如果還是英文名，嘗試縮短它 (移除 Co., Ltd. 等)
+            # 若為英文則縮短
             if any(c.isalpha() for c in final_name) and len(final_name) > 10:
-                final_name = final_name.split(' ') # 只取第一個單字作為代稱
+                final_name = final_name.split(' ')
             
             st.session_state.auto_data["name"] = final_name
             st.session_state.auto_data["last_close"] = hist['Close'].iloc[-2]
@@ -63,17 +61,14 @@ if st.sidebar.button("🔍 自動抓取今日數據"):
     except:
         st.sidebar.error("抓取失敗")
 
-# 左側顯示名稱
 st.sidebar.markdown(f"### 🎯 {st.session_state.auto_data['name']}")
 
-# 數據輸入區
 price = st.sidebar.number_input("當前成交價", value=float(st.session_state.auto_data["current"]), step=0.5)
 last_close = st.sidebar.number_input("平盤價 (昨收)", value=float(st.session_state.auto_data["last_close"]), step=0.5)
 open_p = st.sidebar.number_input("開盤價", value=float(st.session_state.auto_data["open"]), step=0.5)
 ma_p = st.sidebar.number_input("均價線", value=price, step=0.5)
 
 st.sidebar.markdown("---")
-# 自動計算停損獲利
 if trade_type == "做多 (Long)":
     stop_p = st.sidebar.number_input("預計停損價", value=price * 0.98, step=0.5)
     target_p = st.sidebar.number_input("預期獲利點", value=price * 1.05, step=0.5)
@@ -114,9 +109,12 @@ can_enter = all([can_trade_time, env_ok, key_level, risk_confirm, plan_ok, rr_ra
 
 if can_enter:
     st.balloons()
-    st.success(f"## 🟢 【准許進場 - {stock_name} 一張】")
+    # 修改處：移除名稱，維持簡潔
+    st.success(f"## 🟢 【准許進場 - 整股一張】")
 else:
     st.error("## 🔴 【條件未齊 - 觀望】")
+    if not can_trade_time:
+        st.warning(f"⚠️ 時間未到 9:10 (目前 {current_time_str})")
 
 c1, c2 = st.columns(2)
 c1.metric("損益比 (R/R)", f"{rr_ratio:.2f}")
