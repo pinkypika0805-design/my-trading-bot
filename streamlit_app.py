@@ -80,4 +80,23 @@ with col3:
     exhaustion_signal = st.checkbox(exhaust_text)
 with col4:
     key_level = st.checkbox("🔑 突破/跌破關鍵價位")
-    trend_
+    trend_confirm = st.checkbox("⚖️ 我知曉做多/做空風險")
+    plan_ok = st.checkbox("✅ 符合今日交易計畫")
+    st.caption("💡 小提醒：是否符合策略以及出現訊號")
+
+# --- 5. 綜合判斷與數據卡片 ---
+st.markdown("---")
+env_ok = all([m_momentum != "請選擇", s_signal != "請選擇"])
+rr_ratio = abs(target_p - price) / abs(price - stop_p) if price != stop_p else 0
+side_market = (s_signal == "橫盤整理沒出方向 (不建議)")
+can_enter = all([can_trade_time, env_ok, key_level, trend_confirm, plan_ok, rr_ratio >= 2.0, not exhaustion_signal, not side_market])
+
+if can_enter:
+    st.balloons()
+    st.success("## 🟢 【准許進場 - 整股一張】")
+else:
+    st.error("## 🔴 【條件未齊 - 觀望】")
+
+c1, c2 = st.columns(2)
+c1.metric("損益比 (R/R)", f"{rr_ratio:.2f}")
+c2.metric("設定額度", f"{int(max_cap/10000)} 萬")
