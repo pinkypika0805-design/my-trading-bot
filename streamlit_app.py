@@ -2,8 +2,8 @@ import streamlit as st
 from datetime import datetime
 import pytz
 
-st.set_page_config(page_title="Annex Garage 交易系統 V3.7", page_icon="🏎️")
-st.title("🏹 精準當沖進場檢核 (V3.7)")
+st.set_page_config(page_title="Annex Garage 交易系統 V3.8", page_icon="🏎️")
+st.title("🏹 精準當沖進場檢核 (V3.8)")
 
 # --- 1. 時間檢查 ---
 tw_tz = pytz.timezone('Asia/Taipei')
@@ -11,7 +11,7 @@ now_tw = datetime.now(tw_tz)
 current_time_str = now_tw.strftime("%H:%M")
 can_trade_time = now_tw.hour > 9 or (now_tw.hour == 9 and now_tw.minute >= 10)
 
-# --- 2. 側邊欄：設定 ---
+# --- 2. 側邊欄：資金與多空 ---
 st.sidebar.header("💰 交易設定")
 trade_type = st.sidebar.radio("操作方向", ["做多 (Long)", "做空 (Short)"])
 max_cap = st.sidebar.slider("額度上限 (萬)", 30, 50, 30) * 10000
@@ -42,27 +42,27 @@ st.info(f"**趨勢分析：{trend_label}**")
 col1, col2 = st.columns(2)
 with col1:
     market_state = st.selectbox("1. 大盤/櫃買開盤", ["請選擇", "開高", "開平", "開低"])
-    m_momentum = st.selectbox("2. 大盤/櫃買慣性", ["請選擇", "正在拉抬 🚀", "正在下殺 📉", "止跌跡象 🛡️", "止漲跡象 ⚠️", "橫盤震盪 ☁️"])
-
 with col2:
-    direction = st.selectbox("3. 個股開盤方向", ["請選擇", "往上衝", "往下殺", "橫盤震盪"])
-    s_signal = st.selectbox("4. K 棒結構訊號", ["無明顯訊號", "高不過高 (轉弱)", "低不過低 (支撐)"])
+    direction = st.selectbox("2. 個股開盤方向", ["請選擇", "往上衝", "往下殺", "橫盤震盪"])
 
-# --- 4. 核心準則檢核 ---
+# --- 4. 核心準則檢核 (併入慣性與結構) ---
 st.markdown("---")
 st.subheader("🔍 進場準則最終檢核")
 
 col3, col4 = st.columns(2)
 with col3:
-    key_level = st.checkbox("🔑 突破/跌破關鍵價位")
-    # 動態變更力竭文字
+    # 移入大盤慣性與 K 棒結構
+    m_momentum = st.selectbox("🚩 目前大盤/櫃買慣性", ["請選擇", "正在拉抬 🚀", "正在下殺 📉", "止跌跡象 🛡️", "止漲跡象 ⚠️", "橫盤震盪 ☁️"])
+    s_signal = st.selectbox("📈 K 棒結構觀察", ["無明顯訊號", "高不過高 (轉弱)", "低不過低 (支撐)"])
+    
     if trade_type == "做多 (Long)":
-        exhaust_text = "🚩 高點大單力竭 (上攻無力，多單警戒)"
+        exhaust_text = "🚩 高點大單力竭 (上攻無力)"
     else:
-        exhaust_text = "🎯 底部大單力竭 (下殺無力，空單警戒)"
+        exhaust_text = "🎯 底部大單力竭 (下殺無力)"
     exhaustion_signal = st.checkbox(exhaust_text)
 
 with col4:
+    key_level = st.checkbox("🔑 突破/跌破關鍵價位")
     risk_text = f"⚖️ 我知曉「{trade_type}」風險"
     trend_confirm = st.checkbox(risk_text)
     plan_ok = st.checkbox("✅ 符合今日交易計畫")
@@ -75,18 +75,19 @@ reward_dist = abs(target_p - price)
 rr_ratio = reward_dist / risk_dist if risk_dist > 0 else 0
 rr_ok = rr_ratio >= 2.0
 
-# 核心邏輯：只要勾選力竭訊號，就不允許進場 (代表動能耗盡)
+# 最終邏輯：排除力竭訊號，確保環境皆已選擇
 can_enter = all([can_trade_time, env_ok, key_level, trend_confirm, plan_ok, rr_ok, not exhaustion_signal])
 
 if can_enter:
     st.balloons()
     st.success(f"## 🟢 【准許進場 - {trade_type}】")
+    st.info(f"大盤慣性：{m_momentum} / 結構：{s_signal}")
 else:
     st.error("## 🔴 【條件未齊 - 觀望】")
-    if exhaustion_signal:
-        st.warning(f"⚠️ 偵測到「{exhaust_text}」，建議等待拉回或止穩再行動。")
-    if not rr_ok: st.warning(f"⚠️ 損益比不足 (目前: {rr_ratio:.2f})")
-    if not can_trade_time: st.warning(f"⚠️ 時間未到 9:10")
+    if exhaustion_signal: st.warning(f"⚠️ 偵測到「{exhaust_text}」，先收手！")
+    if not env_ok: st.warning("⚠️ 請務必選擇「大盤開盤、大盤慣性、個股方向」")
+    if not rr_ok: st.warning(f"⚠️ 損益比不足 ({rr_ratio:.2f})")
+    if not can_trade_time: st.warning(f"⚠️ 未到 9:10 禁動手時間")
 
 # --- 6. 數據卡片 ---
 st.markdown("---")
