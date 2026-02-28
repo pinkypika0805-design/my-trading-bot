@@ -2,8 +2,8 @@ import streamlit as st
 from datetime import datetime
 import pytz
 
-st.set_page_config(page_title="Annex Garage 交易系統 V4.0", page_icon="🏎️")
-st.title("🏹 精準當沖進場檢核 (V4.0)")
+st.set_page_config(page_title="Annex Garage 交易系統 V4.1", page_icon="🏎️")
+st.title("🏹 精準當沖進場檢核 (V4.1)")
 
 # --- 1. 時間檢查 ---
 tw_tz = pytz.timezone('Asia/Taipei')
@@ -69,9 +69,11 @@ with col3:
 
 with col4:
     key_level = st.checkbox("🔑 突破/跌破關鍵價位")
-    # 已修正為：我知曉做多/做空風險
     trend_confirm = st.checkbox("⚖️ 我知曉做多/做空風險")
+    
+    # 新增今日交易計畫與註記
     plan_ok = st.checkbox("✅ 符合今日交易計畫")
+    st.caption("💡 小提醒：是否符合策略以及出現訊號")
 
 # --- 5. 綜合判斷結果 ---
 st.markdown("---")
@@ -91,8 +93,8 @@ else:
     st.error("## 🔴 【條件未齊 - 觀望】")
     if side_market:
         st.warning("⚠️ 橫盤整理中，請等待方向出現。")
-    if exhaustion_signal:
-        st.warning(f"⚠️ 偵測到「{exhaust_text}」，建議觀望。")
+    if not plan_ok:
+        st.warning("⚠️ 請確認是否完全符合今日預定的策略與訊號。")
     if not rr_ok:
         st.warning(f"⚠️ 損益比不足 ({rr_ratio:.2f})")
     if not can_trade_time:
