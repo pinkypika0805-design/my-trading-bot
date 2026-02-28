@@ -2,8 +2,8 @@ import streamlit as st
 from datetime import datetime
 import pytz
 
-st.set_page_config(page_title="Annex Garage 交易系統 V3.9", page_icon="🏎️")
-st.title("🏹 精準當沖進場檢核 (V3.9)")
+st.set_page_config(page_title="Annex Garage 交易系統 V4.0", page_icon="🏎️")
+st.title("🏹 精準當沖進場檢核 (V4.0)")
 
 # --- 1. 時間檢查 ---
 tw_tz = pytz.timezone('Asia/Taipei')
@@ -53,57 +53,8 @@ col3, col4 = st.columns(2)
 with col3:
     m_momentum = st.selectbox("🚩 目前大盤/櫃買慣性", ["請選擇", "正在拉抬 🚀", "正在下殺 📉", "止跌跡象 🛡️", "止漲跡象 ⚠️", "橫盤震盪 ☁️"])
     
-    # 新增「橫盤整理沒出方向」選項
     s_signal = st.selectbox("📈 K 棒結構觀察", [
         "請選擇", 
         "高不過高 (轉弱)", 
         "低不過低 (支撐)", 
-        "橫盤整理沒出方向 (不建議進場)", 
-        "無明顯訊號"
-    ])
-    
-    if trade_type == "做多 (Long)":
-        exhaust_text = "🚩 高點大單力竭 (上攻無力)"
-    else:
-        exhaust_text = "🎯 底部大單力竭 (下殺無力)"
-    exhaustion_signal = st.checkbox(exhaust_text)
-
-with col4:
-    key_level = st.checkbox("🔑 突破/跌破關鍵價位")
-    risk_text = f"⚖️ 我知曉「{trade_type}」風險"
-    trend_confirm = st.checkbox(risk_text)
-    plan_ok = st.checkbox("✅ 符合今日交易計畫")
-
-# --- 5. 綜合判斷結果 ---
-st.markdown("---")
-env_ok = all([market_state != "請選擇", m_momentum != "請選擇", direction != "請選擇", s_signal != "請選擇"])
-risk_dist = abs(price - stop_p)
-reward_dist = abs(target_p - price)
-rr_ratio = reward_dist / risk_dist if risk_dist > 0 else 0
-rr_ok = rr_ratio >= 2.0
-
-# 增加「橫盤整理」的禁令邏輯
-side_market = (s_signal == "橫盤整理沒出方向 (不建議進場)")
-can_enter = all([can_trade_time, env_ok, key_level, trend_confirm, plan_ok, rr_ok, not exhaustion_signal, not side_market])
-
-if can_enter:
-    st.balloons()
-    st.success(f"## 🟢 【准許進場 - {trade_type}】")
-else:
-    st.error("## 🔴 【條件未齊 - 觀望】")
-    if side_market:
-        st.warning("⚠️ 目前處於橫盤整理，沒出方向前進場容易被雙巴，建議耐心等待突破。")
-    if exhaustion_signal:
-        st.warning(f"⚠️ 偵測到「{exhaust_text}」，先收手！")
-    if s_signal == "請選擇":
-        st.warning("⚠️ 請選擇 K 棒結構觀察狀態。")
-    if not can_trade_time:
-        st.warning(f"⚠️ 未到 9:10 禁動手時間 (目前 {current_time_str})")
-
-# --- 6. 數據卡片 ---
-st.markdown("---")
-c1, c2, c3 = st.columns(3)
-c1.metric("損益比 (R/R)", f"{rr_ratio:.2f}")
-c2.metric("設定額度", f"{int(max_cap/10000)} 萬")
-shares = int(max_cap // (price * 1.001425))
-c3.metric("建議股數", f"{shares} 股")
+        "橫
