@@ -2,8 +2,8 @@ import streamlit as st
 from datetime import datetime
 import pytz
 
-st.set_page_config(page_title="Annex Garage 交易系統 V3.6", page_icon="🏎️")
-st.title("🏹 精準當沖進場檢核 (V3.6)")
+st.set_page_config(page_title="Annex Garage 交易系統 V3.7", page_icon="🏎️")
+st.title("🏹 精準當沖進場檢核 (V3.7)")
 
 # --- 1. 時間檢查 ---
 tw_tz = pytz.timezone('Asia/Taipei')
@@ -11,9 +11,8 @@ now_tw = datetime.now(tw_tz)
 current_time_str = now_tw.strftime("%H:%M")
 can_trade_time = now_tw.hour > 9 or (now_tw.hour == 9 and now_tw.minute >= 10)
 
-# --- 2. 側邊欄：多空設定與數據 ---
+# --- 2. 側邊欄：設定 ---
 st.sidebar.header("💰 交易設定")
-# 已修正為「做多」
 trade_type = st.sidebar.radio("操作方向", ["做多 (Long)", "做空 (Short)"])
 max_cap = st.sidebar.slider("額度上限 (萬)", 30, 50, 30) * 10000
 
@@ -56,9 +55,14 @@ st.subheader("🔍 進場準則最終檢核")
 col3, col4 = st.columns(2)
 with col3:
     key_level = st.checkbox("🔑 突破/跌破關鍵價位")
-    exhaustion_signal = st.checkbox("🚩 出現大單力竭 (敲過 3-4 tick 回縮)")
+    # 動態變更力竭文字
+    if trade_type == "做多 (Long)":
+        exhaust_text = "🚩 高點大單力竭 (上攻無力，多單警戒)"
+    else:
+        exhaust_text = "🎯 底部大單力竭 (下殺無力，空單警戒)"
+    exhaustion_signal = st.checkbox(exhaust_text)
+
 with col4:
-    # 這裡已修正為「做多」
     risk_text = f"⚖️ 我知曉「{trade_type}」風險"
     trend_confirm = st.checkbox(risk_text)
     plan_ok = st.checkbox("✅ 符合今日交易計畫")
@@ -71,21 +75,16 @@ reward_dist = abs(target_p - price)
 rr_ratio = reward_dist / risk_dist if risk_dist > 0 else 0
 rr_ok = rr_ratio >= 2.0
 
-# 邏輯核心：做多不可有力竭，做空有力竭則 OK
-if trade_type == "做多 (Long)":
-    can_enter = all([can_trade_time, env_ok, key_level, trend_confirm, plan_ok, rr_ok, not exhaustion_signal])
-else:
-    can_enter = all([can_trade_time, env_ok, key_level, trend_confirm, plan_ok, rr_ok])
+# 核心邏輯：只要勾選力竭訊號，就不允許進場 (代表動能耗盡)
+can_enter = all([can_trade_time, env_ok, key_level, trend_confirm, plan_ok, rr_ok, not exhaustion_signal])
 
 if can_enter:
     st.balloons()
     st.success(f"## 🟢 【准許進場 - {trade_type}】")
-    if trade_type == "做空 (Short)" and exhaustion_signal:
-        st.info("🎯 偵測到上攻力竭，空單進場優勢增加。")
 else:
     st.error("## 🔴 【條件未齊 - 觀望】")
-    if trade_type == "做多 (Long)" and exhaustion_signal:
-        st.warning("⚠️ 偵測到力竭訊號，多單禁止進場！")
+    if exhaustion_signal:
+        st.warning(f"⚠️ 偵測到「{exhaust_text}」，建議等待拉回或止穩再行動。")
     if not rr_ok: st.warning(f"⚠️ 損益比不足 (目前: {rr_ratio:.2f})")
     if not can_trade_time: st.warning(f"⚠️ 時間未到 9:10")
 
