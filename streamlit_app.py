@@ -13,7 +13,7 @@ can_trade_time = now_tw.hour > 9 or (now_tw.hour == 9 and now_tw.minute >= 10)
 
 # --- 2. 側邊欄：資金與多空設定 ---
 st.sidebar.header("💰 交易設定")
-trade_type = st.sidebar.radio("本次操作方向", ["作多 (Long)", "做空 (Short)"])
+trade_type = st.sidebar.radio("本次操作方向", ["做多 (Long)", "做空 (Short)"])
 max_cap = st.sidebar.slider("額度上限 (萬)", 30, 50, 30) * 10000
 
 ticker = st.sidebar.text_input("股票代號", value="2330")
