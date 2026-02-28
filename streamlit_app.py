@@ -2,8 +2,9 @@ import streamlit as st
 from datetime import datetime
 import pytz
 
-st.set_page_config(page_title="Annex Garage 交易系統 V4.3", page_icon="🏎️")
-st.title("🏹 精準當沖進場檢核 (V4.3)")
+st.set_page_config(page_title="Annex Garage 交易系統 V4.4", page_icon="🏎️")
+st.title("🏹 精準當沖進場檢核 (V4.4)")
+st.caption("實驗目標：每日一單 (整股一張)，嚴格執行 09:10 紀律")
 
 # --- 1. 時間檢查 ---
 tw_tz = pytz.timezone('Asia/Taipei')
@@ -12,13 +13,12 @@ current_time_str = now_tw.strftime("%H:%M")
 can_trade_time = now_tw.hour > 9 or (now_tw.hour == 9 and now_tw.minute >= 10)
 
 # --- 2. 側邊欄：設定 ---
-st.sidebar.header("💰 交易設定與數據")
+st.sidebar.header("💰 交易數據輸入")
 trade_type = st.sidebar.radio("操作方向", ["做多 (Long)", "做空 (Short)"])
 max_cap = st.sidebar.slider("額度上限 (萬)", 30, 50, 30) * 10000
 
 ticker = st.sidebar.text_input("股票代號", value="2330")
 price = st.sidebar.number_input("當前成交價", value=200.0, step=0.5)
-# 新增平盤價輸入
 last_close = st.sidebar.number_input("平盤價 (昨日收盤)", value=195.0, step=0.5)
 open_p = st.sidebar.number_input("開盤價", value=195.0, step=0.5)
 ma_p = st.sidebar.number_input("均價線", value=198.0, step=0.5)
@@ -31,10 +31,9 @@ else:
     stop_p = st.sidebar.number_input("預計停損價", value=price * 1.02, step=0.5)
     target_p = st.sidebar.number_input("預期獲利點", value=price * 0.95, step=0.5)
 
-# --- 3. 趨勢判定與開盤強度計算 ---
+# --- 3. 趨勢判定與強度計算 ---
 st.subheader(f"🌍 當前操作：{trade_type}")
 
-# 自動計算開盤強度
 open_gap_percent = ((open_p - last_close) / last_close) * 100
 strength_label = ""
 if open_gap_percent >= 5.0:
@@ -44,7 +43,6 @@ elif open_gap_percent >= 3.0:
 else:
     strength_label = " ⚖️ 普通"
 
-# 顯示強度與趨勢
 if trade_type == "做多 (Long)":
     is_trend = (price > open_p and price > ma_p)
 else:
@@ -55,9 +53,8 @@ trend_label = "🟢 順勢格局" if is_trend else "🔴 逆勢操作"
 st.info(f"**開盤強度：{strength_label} ({open_gap_percent:.2f}%)**")
 st.info(f"**趨勢分析：{trend_label}**")
 
-# 做空警示連動
 if trade_type == "做空 (Short)" and open_gap_percent >= 3.0:
-    st.warning(f"⚠️ 注意：開盤狀態為「{strength_label}」，做空需嚴防強勢軋空，請確認力竭訊號出現！")
+    st.warning(f"⚠️ 警告：開盤狀態強勢，做空需嚴防軋空，請確認力竭訊號！")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -72,14 +69,7 @@ st.subheader("🔍 進場準則最終檢核")
 col3, col4 = st.columns(2)
 with col3:
     m_momentum = st.selectbox("🚩 目前大盤/櫃買慣性", ["請選擇", "正在拉抬 🚀", "正在下殺 📉", "止跌跡象 🛡️", "止漲跡象 ⚠️", "橫盤震盪 ☁️"])
-    
-    s_signal = st.selectbox("📈 K 棒結構觀察", [
-        "請選擇", 
-        "高不過高 (轉弱)", 
-        "低不過低 (支撐)", 
-        "橫盤整理沒出方向 (不建議進場)", 
-        "無明顯訊號"
-    ])
+    s_signal = st.selectbox("📈 K 棒結構觀察", ["請選擇", "高不過高 (轉弱)", "低不過低 (支撐)", "橫盤整理沒出方向 (不建議進場)", "無明顯訊號"])
     
     if trade_type == "做多 (Long)":
         exhaust_text = "🚩 高點大單力竭 (上攻無力)"
@@ -100,26 +90,20 @@ risk_dist = abs(price - stop_p)
 reward_dist = abs(target_p - price)
 rr_ratio = reward_dist / risk_dist if risk_dist > 0 else 0
 rr_ok = rr_ratio >= 2.0
-
 side_market = (s_signal == "橫盤整理沒出方向 (不建議進場)")
+
 can_enter = all([can_trade_time, env_ok, key_level, trend_confirm, plan_ok, rr_ok, not exhaustion_signal, not side_market])
 
 if can_enter:
     st.balloons()
-    st.success(f"## 🟢 【准許進場 - {trade_type}】")
+    st.success(f"## 🟢 【准許進場 - 整股一張】")
 else:
     st.error("## 🔴 【條件未齊 - 觀望】")
-    if side_market:
-        st.warning("⚠️ 橫盤整理中，請等待方向出現。")
-    if trade_type == "做空 (Short)" and open_gap_percent >= 5.0:
-        st.error("❌ 極強股做空風險極高，建議等待更明確的轉弱訊號！")
-    if not can_trade_time:
-        st.warning(f"⚠️ 未到 9:10 禁動手時間")
+    if side_market: st.warning("⚠️ 橫盤整理中，請等待方向出現。")
+    if not can_trade_time: st.warning(f"⚠️ 未到 9:10 禁動手時間")
 
-# --- 6. 數據卡片 ---
+# --- 6. 數據卡片 (精簡版) ---
 st.markdown("---")
-c1, c2, c3 = st.columns(3)
+c1, c2 = st.columns(2)
 c1.metric("損益比 (R/R)", f"{rr_ratio:.2f}")
-c2.metric("設定額度", f"{int(max_cap/10000)} 萬")
-shares = int(max_cap // (price * 1.001425))
-c3.metric("建議股數", f"{shares} 股")
+c2.metric("當前設定額度", f"{int(max_cap/10000)} 萬")
