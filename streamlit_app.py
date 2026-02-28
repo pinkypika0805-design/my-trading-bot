@@ -57,4 +57,51 @@ with col3:
         "請選擇", 
         "高不過高 (轉弱)", 
         "低不過低 (支撐)", 
-        "橫
+        "橫盤整理沒出方向 (不建議進場)", 
+        "無明顯訊號"
+    ])
+    
+    if trade_type == "做多 (Long)":
+        exhaust_text = "🚩 高點大單力竭 (上攻無力)"
+    else:
+        exhaust_text = "🎯 底部大單力竭 (下殺無力)"
+    exhaustion_signal = st.checkbox(exhaust_text)
+
+with col4:
+    key_level = st.checkbox("🔑 突破/跌破關鍵價位")
+    # 已修正為：我知曉做多/做空風險
+    trend_confirm = st.checkbox("⚖️ 我知曉做多/做空風險")
+    plan_ok = st.checkbox("✅ 符合今日交易計畫")
+
+# --- 5. 綜合判斷結果 ---
+st.markdown("---")
+env_ok = all([market_state != "請選擇", m_momentum != "請選擇", direction != "請選擇", s_signal != "請選擇"])
+risk_dist = abs(price - stop_p)
+reward_dist = abs(target_p - price)
+rr_ratio = reward_dist / risk_dist if risk_dist > 0 else 0
+rr_ok = rr_ratio >= 2.0
+
+side_market = (s_signal == "橫盤整理沒出方向 (不建議進場)")
+can_enter = all([can_trade_time, env_ok, key_level, trend_confirm, plan_ok, rr_ok, not exhaustion_signal, not side_market])
+
+if can_enter:
+    st.balloons()
+    st.success(f"## 🟢 【准許進場 - {trade_type}】")
+else:
+    st.error("## 🔴 【條件未齊 - 觀望】")
+    if side_market:
+        st.warning("⚠️ 橫盤整理中，請等待方向出現。")
+    if exhaustion_signal:
+        st.warning(f"⚠️ 偵測到「{exhaust_text}」，建議觀望。")
+    if not rr_ok:
+        st.warning(f"⚠️ 損益比不足 ({rr_ratio:.2f})")
+    if not can_trade_time:
+        st.warning(f"⚠️ 未到 9:10 禁動手時間")
+
+# --- 6. 數據卡片 ---
+st.markdown("---")
+c1, c2, c3 = st.columns(3)
+c1.metric("損益比 (R/R)", f"{rr_ratio:.2f}")
+c2.metric("設定額度", f"{int(max_cap/10000)} 萬")
+shares = int(max_cap // (price * 1.001425))
+c3.metric("建議股數", f"{shares} 股")
