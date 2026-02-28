@@ -2,8 +2,8 @@ import streamlit as st
 from datetime import datetime
 import pytz
 
-st.set_page_config(page_title="Annex Garage 交易系統 V4.1", page_icon="🏎️")
-st.title("🏹 精準當沖進場檢核 (V4.1)")
+st.set_page_config(page_title="Annex Garage 交易系統 V4.3", page_icon="🏎️")
+st.title("🏹 精準當沖進場檢核 (V4.3)")
 
 # --- 1. 時間檢查 ---
 tw_tz = pytz.timezone('Asia/Taipei')
@@ -12,12 +12,14 @@ current_time_str = now_tw.strftime("%H:%M")
 can_trade_time = now_tw.hour > 9 or (now_tw.hour == 9 and now_tw.minute >= 10)
 
 # --- 2. 側邊欄：設定 ---
-st.sidebar.header("💰 交易設定")
+st.sidebar.header("💰 交易設定與數據")
 trade_type = st.sidebar.radio("操作方向", ["做多 (Long)", "做空 (Short)"])
 max_cap = st.sidebar.slider("額度上限 (萬)", 30, 50, 30) * 10000
 
 ticker = st.sidebar.text_input("股票代號", value="2330")
 price = st.sidebar.number_input("當前成交價", value=200.0, step=0.5)
+# 新增平盤價輸入
+last_close = st.sidebar.number_input("平盤價 (昨日收盤)", value=195.0, step=0.5)
 open_p = st.sidebar.number_input("開盤價", value=195.0, step=0.5)
 ma_p = st.sidebar.number_input("均價線", value=198.0, step=0.5)
 
@@ -29,15 +31,33 @@ else:
     stop_p = st.sidebar.number_input("預計停損價", value=price * 1.02, step=0.5)
     target_p = st.sidebar.number_input("預期獲利點", value=price * 0.95, step=0.5)
 
-# --- 3. 趨勢判定 ---
+# --- 3. 趨勢判定與開盤強度計算 ---
 st.subheader(f"🌍 當前操作：{trade_type}")
+
+# 自動計算開盤強度
+open_gap_percent = ((open_p - last_close) / last_close) * 100
+strength_label = ""
+if open_gap_percent >= 5.0:
+    strength_label = " 🔥 極強 (跳空 5%↑)"
+elif open_gap_percent >= 3.0:
+    strength_label = " 💪 強 (跳空 3%↑)"
+else:
+    strength_label = " ⚖️ 普通"
+
+# 顯示強度與趨勢
 if trade_type == "做多 (Long)":
     is_trend = (price > open_p and price > ma_p)
 else:
     is_trend = (price < open_p and price < ma_p)
 
 trend_label = "🟢 順勢格局" if is_trend else "🔴 逆勢操作"
+
+st.info(f"**開盤強度：{strength_label} ({open_gap_percent:.2f}%)**")
 st.info(f"**趨勢分析：{trend_label}**")
+
+# 做空警示連動
+if trade_type == "做空 (Short)" and open_gap_percent >= 3.0:
+    st.warning(f"⚠️ 注意：開盤狀態為「{strength_label}」，做空需嚴防強勢軋空，請確認力竭訊號出現！")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -70,8 +90,6 @@ with col3:
 with col4:
     key_level = st.checkbox("🔑 突破/跌破關鍵價位")
     trend_confirm = st.checkbox("⚖️ 我知曉做多/做空風險")
-    
-    # 新增今日交易計畫與註記
     plan_ok = st.checkbox("✅ 符合今日交易計畫")
     st.caption("💡 小提醒：是否符合策略以及出現訊號")
 
@@ -93,10 +111,8 @@ else:
     st.error("## 🔴 【條件未齊 - 觀望】")
     if side_market:
         st.warning("⚠️ 橫盤整理中，請等待方向出現。")
-    if not plan_ok:
-        st.warning("⚠️ 請確認是否完全符合今日預定的策略與訊號。")
-    if not rr_ok:
-        st.warning(f"⚠️ 損益比不足 ({rr_ratio:.2f})")
+    if trade_type == "做空 (Short)" and open_gap_percent >= 5.0:
+        st.error("❌ 極強股做空風險極高，建議等待更明確的轉弱訊號！")
     if not can_trade_time:
         st.warning(f"⚠️ 未到 9:10 禁動手時間")
 
